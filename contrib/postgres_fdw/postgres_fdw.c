@@ -14,7 +14,7 @@
 
 #include "postgres_fdw.h"
 
-#include "access/htup_details.h"
+#include "access/htup.h"
 #include "commands/defrem.h"
 #include "commands/explain.h"
 #include "commands/vacuum.h"
@@ -348,9 +348,9 @@ postgresGetForeignRelSize(PlannerInfo *root,
 		 * local statistics.
 		 */
 		sel = clauselist_selectivity(root, param_conds,
-									 baserel->relid, JOIN_INNER, NULL);
+									 baserel->relid, JOIN_INNER, NULL, false);
 		sel *= clauselist_selectivity(root, local_conds,
-									  baserel->relid, JOIN_INNER, NULL);
+									  baserel->relid, JOIN_INNER, NULL, false);
 
 		/*
 		 * Add in the eval cost of those conditions, too.
@@ -495,7 +495,7 @@ postgresGetForeignPaths(PlannerInfo *root,
 								   NIL, /* no pathkeys */
 								   NULL,		/* no outer rel either */
 								   fdw_private);
-	add_path(baserel, (Path *) path);
+	add_path(root, baserel, (Path *) path);
 
 	/*
 	 * XXX We can consider sorted path or parameterized path here if we know
@@ -733,7 +733,7 @@ postgresIterateForeignScan(ForeignScanState *node)
 	/*
 	 * Return the next tuple.
 	 */
-	ExecStoreTuple(festate->tuples[festate->next_tuple++],
+	ExecStoreHeapTuple(festate->tuples[festate->next_tuple++],
 				   slot,
 				   InvalidBuffer,
 				   false);

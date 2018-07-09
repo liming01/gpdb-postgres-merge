@@ -25,7 +25,7 @@
 
 #include "postgres_fdw.h"
 
-#include "access/htup_details.h"
+#include "access/htup.h"
 #include "access/sysattr.h"
 #include "access/transam.h"
 #include "catalog/pg_namespace.h"

@@ -474,29 +474,29 @@ pgfdw_xact_callback(XactEvent event, void *arg)
 
 		switch (event)
 		{
-			case XACT_EVENT_PRE_COMMIT:
+			case XACT_EVENT_COMMIT:
+			//case XACT_EVENT_PRE_COMMIT:
 				/* Commit all remote transactions during pre-commit */
 				res = PQexec(entry->conn, "COMMIT TRANSACTION");
 				if (PQresultStatus(res) != PGRES_COMMAND_OK)
 					pgfdw_report_error(ERROR, res, true, "COMMIT TRANSACTION");
 				PQclear(res);
 				break;
-			case XACT_EVENT_PRE_PREPARE:
+			//case XACT_EVENT_PRE_PREPARE:
 
-				/*
-				 * We disallow remote transactions that modified anything,
-				 * since it's not really reasonable to hold them open until
-				 * the prepared transaction is committed.  For the moment,
-				 * throw error unconditionally; later we might allow read-only
-				 * cases.  Note that the error will cause us to come right
-				 * back here with event == XACT_EVENT_ABORT, so we'll clean up
-				 * the connection state at that point.
-				 */
-				ereport(ERROR,
-						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-						 errmsg("cannot prepare a transaction that modified remote tables")));
-				break;
-			case XACT_EVENT_COMMIT:
+			//	/*
+			//	 * We disallow remote transactions that modified anything,
+			//	 * since it's not really reasonable to hold them open until
+			//	 * the prepared transaction is committed.  For the moment,
+			//	 * throw error unconditionally; later we might allow read-only
+			//	 * cases.  Note that the error will cause us to come right
+			//	 * back here with event == XACT_EVENT_ABORT, so we'll clean up
+			//	 * the connection state at that point.
+			//	 */
+			//	ereport(ERROR,
+			//			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+			//			 errmsg("cannot prepare a transaction that modified remote tables")));
+			//	break;
 			case XACT_EVENT_PREPARE:
 				/* Should not get here -- pre-commit should have handled it */
 				elog(ERROR, "missed cleaning up connection during pre-commit");
@@ -552,9 +552,9 @@ pgfdw_subxact_callback(SubXactEvent event, SubTransactionId mySubid,
 	int			curlevel;
 
 	/* Nothing to do at subxact start, nor after commit. */
-	if (!(event == SUBXACT_EVENT_PRE_COMMIT_SUB ||
-		  event == SUBXACT_EVENT_ABORT_SUB))
-		return;
+	//if (!(event == SUBXACT_EVENT_PRE_COMMIT_SUB ||
+	//	  event == SUBXACT_EVENT_ABORT_SUB))
+	//	return;
 
 	/* Quick exit if no connections were touched in this transaction. */
 	if (!xact_got_connection)
@@ -582,27 +582,27 @@ pgfdw_subxact_callback(SubXactEvent event, SubTransactionId mySubid,
 			elog(ERROR, "missed cleaning up remote subtransaction at level %d",
 				 entry->xact_depth);
 
-		if (event == SUBXACT_EVENT_PRE_COMMIT_SUB)
-		{
-			/* Commit all remote subtransactions during pre-commit */
-			snprintf(sql, sizeof(sql), "RELEASE SAVEPOINT s%d", curlevel);
-			res = PQexec(entry->conn, sql);
-			if (PQresultStatus(res) != PGRES_COMMAND_OK)
-				pgfdw_report_error(ERROR, res, true, sql);
-			PQclear(res);
-		}
-		else
-		{
-			/* Rollback all remote subtransactions during abort */
-			snprintf(sql, sizeof(sql),
-					 "ROLLBACK TO SAVEPOINT s%d; RELEASE SAVEPOINT s%d",
-					 curlevel, curlevel);
-			res = PQexec(entry->conn, sql);
-			if (PQresultStatus(res) != PGRES_COMMAND_OK)
-				pgfdw_report_error(WARNING, res, true, sql);
-			else
-				PQclear(res);
-		}
+		//if (event == SUBXACT_EVENT_PRE_COMMIT_SUB)
+		//{
+		//	/* Commit all remote subtransactions during pre-commit */
+		//	snprintf(sql, sizeof(sql), "RELEASE SAVEPOINT s%d", curlevel);
+		//	res = PQexec(entry->conn, sql);
+		//	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+		//		pgfdw_report_error(ERROR, res, true, sql);
+		//	PQclear(res);
+		//}
+		//else
+		//{
+		//	/* Rollback all remote subtransactions during abort */
+		//	snprintf(sql, sizeof(sql),
+		//			 "ROLLBACK TO SAVEPOINT s%d; RELEASE SAVEPOINT s%d",
+		//			 curlevel, curlevel);
+		//	res = PQexec(entry->conn, sql);
+		//	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+		//		pgfdw_report_error(WARNING, res, true, sql);
+		//	else
+		//		PQclear(res);
+		//}
 
 		/* OK, we're outta that level of subtransaction */
 		entry->xact_depth--;
