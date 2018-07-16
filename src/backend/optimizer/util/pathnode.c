@@ -38,6 +38,7 @@
 #include "utils/selfuncs.h"
 
 #include "cdb/cdbpath.h"        /* cdb_create_motion_path() etc */
+#include "cdb/cdbpathlocus.h"        /* CdbPathLocus_MakeStrewn etc*/
 
 typedef enum
 {
@@ -2866,7 +2867,8 @@ create_foreignscan_path(PlannerInfo *root, RelOptInfo *rel,
 	pathnode->path.startup_cost = startup_cost;
 	pathnode->path.total_cost = total_cost;
 	pathnode->path.pathkeys = pathkeys;
-	pathnode->path.locus = cdbpathlocus_from_baserel(root, rel);
+	//pathnode->path.locus = cdbpathlocus_from_baserel(root, rel);
+	CdbPathLocus_MakeStrewn(&(pathnode->path.locus)); 
 
 	pathnode->fdw_private = fdw_private;
 
