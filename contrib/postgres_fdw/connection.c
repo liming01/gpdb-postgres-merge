@@ -20,6 +20,7 @@
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
 
+#include "utils/guc.h"
 
 /*
  * Connection cache hash table entry

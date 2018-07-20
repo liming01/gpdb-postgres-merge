@@ -5671,6 +5671,22 @@ reconstruct_group_clause(List *orig_groupClause, List *tlist, AttrNumber *grpCol
 	return new_groupClause;
 }
 
+Motion *
+make_dummy_motion(PlannerInfo *root, Plan *lefttree, List *sortPathKeys, bool useExecutorVarFormat)
+{
+    Motion *node = makeNode(Motion);
+	Plan   *plan = &node->plan;
+	
+	plan->dispatch = DISPATCH_PARALLEL;
+	
+
+	plan->flow = NULL;
+
+	node->outputSegIdx = NULL;
+	node->numOutputSegs = 0;
+
+	return node;
+}
 /* --------------------------------------------------------------------
  * make_motion -- creates a Motion node.
  * Caller must have built the pHashDefn, pFixedDefn,

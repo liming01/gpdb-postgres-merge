@@ -34,6 +34,7 @@
 #include "utils/syscache.h"
 #include "cdb/cdbhash.h"
 
+#include "cdb/cdbmutate.h"
 
 typedef struct
 {
@@ -767,6 +768,9 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
 					fix_scan_list(root, splan->scan.plan.qual, rtoffset);
 				splan->fdw_exprs =
 					fix_scan_list(root, splan->fdw_exprs, rtoffset);
+
+				// add motion node as it's child
+				plan->lefttree = (Node *) make_fdw_motion(plan, true	/* useExecutorVarFormat */);
 			}
 			break;
 
@@ -1124,6 +1128,10 @@ set_plan_refs(PlannerInfo *root, Plan *plan, int rtoffset)
 		case T_Motion:
 			{
 				Motion	   *motion = (Motion *) plan;
+				// for fdw dummy motion, just skip it
+				if (plan->lefttree==NULL)
+					break;
+
 				/* test flag to prevent processing the node multi times */
 				indexed_tlist *childplan_itlist =
 					build_tlist_index(plan->lefttree->targetlist);

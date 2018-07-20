@@ -28,6 +28,7 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 
+#include "utils/guc.h"
 
 PG_MODULE_MAGIC;
 
@@ -956,6 +957,21 @@ create_cursor(ForeignScanState *node)
 
 	/* Construct the DECLARE CURSOR command */
 	sql = strVal(list_nth(festate->fdw_private, FdwPrivateSelectSql));
+	initStringInfo(&buf);
+
+	// set fdw motion info to remote server guc
+	initStringInfo(&buf);
+	appendStringInfo(&buf, "set gp_fdw_plan_rewrite=true; set gp_fdw_motion_recv_port1=%u; set gp_fdw_motion_recv_port2=%u;  set gp_fdw_motion_recv_port3=%u;",
+	                 gp_fdw_motion_recv_port1, gp_fdw_motion_recv_port2, gp_fdw_motion_recv_port3);
+
+	res = PQexec(conn, buf.data);
+
+	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+		pgfdw_report_error(ERROR, res, true, buf.data);
+
+	PQclear(res);
+	pfree(buf.data);
+
 	initStringInfo(&buf);
 	appendStringInfo(&buf, "DECLARE c%u CURSOR FOR\n%s",
 					 festate->cursor_number, sql);

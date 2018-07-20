@@ -31,6 +31,7 @@ extern Motion *make_sorted_union_motion(PlannerInfo *root, Plan *lefttree, int d
 extern Motion *make_hashed_motion(Plan *lefttree,
 				    List *hashExpr, bool useExecutorVarFormat);
 
+extern Motion *make_fdw_motion(Plan *lefttree, bool useExecutorVarFormat);
 extern Motion *make_broadcast_motion(Plan *lefttree, bool useExecutorVarFormat);
 
 extern Motion *make_explicit_motion(Plan *lefttree, AttrNumber segidColIdx, bool useExecutorVarFormat);

@@ -832,11 +832,11 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	if (estate->es_instrument && result != NULL)
 		result->instrument = GpInstrAlloc(node, estate->es_instrument);
 
-	/* Also set up gpmon counters */
-	InitPlanNodeGpmonPkt(node, &result->gpmon_pkt, estate);
-
 	if (result != NULL)
 	{
+		/* Also set up gpmon counters */
+		InitPlanNodeGpmonPkt(node, &result->gpmon_pkt, estate);
+
 		SAVE_EXECUTOR_MEMORY_ACCOUNT(result, curMemoryAccountId);
 	}
 	return result;

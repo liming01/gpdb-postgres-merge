@@ -27,6 +27,12 @@
 #include "foreign/fdwapi.h"
 #include "utils/rel.h"
 
+#include "utils/guc.h"
+#include "cdb/cdbvars.h"        //for GpIdentity
+#include "cdb/cdbgang.h"        //for CdbProcess 
+#include "executor/execdesc.h"  //for Slice
+#include "executor/execUtils.h" //for getCurrentSlice()
+
 static TupleTableSlot *ForeignNext(ForeignScanState *node);
 static bool ForeignRecheck(ForeignScanState *node, TupleTableSlot *slot);
 
@@ -40,14 +46,17 @@ static bool ForeignRecheck(ForeignScanState *node, TupleTableSlot *slot);
 static TupleTableSlot *
 ForeignNext(ForeignScanState *node)
 {
-	TupleTableSlot *slot;
+	TupleTableSlot *slot = NULL;
 	ForeignScan *plan = (ForeignScan *) node->ss.ps.plan;
 	ExprContext *econtext = node->ss.ps.ps_ExprContext;
 	MemoryContext oldcontext;
 
 	/* Call the Iterate function in short-lived context */
 	oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
-	slot = node->fdwroutine->IterateForeignScan(node);
+	if (GpIdentity.segindex==0 && Gp_role == GP_ROLE_EXECUTE)
+	{
+		slot = node->fdwroutine->IterateForeignScan(node);
+	}
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
@@ -164,10 +173,46 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 	scanstate->fdwroutine = fdwroutine;
 	scanstate->fdw_state = NULL;
 
-	/*
-	 * Tell the FDW to initiate the scan.
-	 */
-	fdwroutine->BeginForeignScan(scanstate, eflags);
+	if (GpIdentity.segindex==0 && Gp_role == GP_ROLE_EXECUTE){ // only send remote query at seg0
+		
+		// get motion receiver info (hostip, port) of this gang in this slice
+		Slice *currentSlice = getCurrentSlice(estate, LocallyExecutingSliceIndex(estate));
+
+		int i=0;
+		ListCell   *lc = NULL;
+		foreach(lc, currentSlice->primaryProcesses)
+		{
+			CdbProcess *cdbProc = (CdbProcess *) lfirst(lc);
+
+			if (cdbProc)
+			{
+				// get info: cdbProc->listenerAddr and cdbProc->listenerPort
+				switch(i++){
+				case 0:
+					gp_fdw_motion_recv_port1 = cdbProc->listenerPort;
+					break;
+				case 1:
+					gp_fdw_motion_recv_port2 = cdbProc->listenerPort;
+					break;
+				case 2:
+					gp_fdw_motion_recv_port3 = cdbProc->listenerPort;
+					break;
+				}
+			}
+		}
+
+		/*
+		 * Tell the FDW to initiate the scan.
+		 */
+		fdwroutine->BeginForeignScan(scanstate, eflags);
+	}
+
+//	 if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
+//	 	//for fdw motion child node
+//	 	Plan *fdwMotionNode = outerPlan(node);
+//	 	if(fdwMotionNode)
+//	 		outerPlanState(scanstate) = ExecInitNode(fdwMotionNode, estate, eflags);
+//	 }
 
 	return scanstate;
 }
@@ -182,7 +227,9 @@ void
 ExecEndForeignScan(ForeignScanState *node)
 {
 	/* Let the FDW shut down */
-	node->fdwroutine->EndForeignScan(node);
+	if (GpIdentity.segindex==0 && Gp_role == GP_ROLE_EXECUTE){
+		node->fdwroutine->EndForeignScan(node);
+	}
 
 	/* Free the exprcontext */
 	ExecFreeExprContext(&node->ss.ps);

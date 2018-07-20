@@ -853,6 +853,11 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	int			i;
 #endif
 
+	//for fdw dummy motion
+	//Todo: need to construct MotionState for fdw dummy motion
+	if(node->motionID==0) 
+		return NULL;
+
 	Assert(node->motionID > 0);
 	Assert(node->motionID <= sliceTable->nMotions);
 

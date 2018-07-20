@@ -160,6 +160,10 @@ bool		Debug_datumstream_write_use_small_initial_buffers = false;
 bool		gp_create_table_random_default_distribution = true;
 bool		gp_allow_non_uniform_partitioning_ddl = true;
 bool		gp_enable_exchange_default_partition = false;
+bool		gp_fdw_plan_rewrite = false;
+int        *gp_fdw_motion_recv_port1 = 0;
+int        *gp_fdw_motion_recv_port2 = 0;
+int        *gp_fdw_motion_recv_port3 = 0;
 int			dtx_phase2_retry_count = 0;
 
 bool		log_dispatch_stats = false;
@@ -2233,6 +2237,17 @@ struct config_bool ConfigureNamesBool_gp[] =
 			NULL
 		},
 		&gp_enable_exchange_default_partition,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"gp_fdw_plan_rewrite", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("for fdw plan rewrite testing."),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_plan_rewrite,
 		false,
 		NULL, NULL, NULL
 	},
@@ -4418,6 +4433,36 @@ struct config_int ConfigureNamesInt_gp[] =
 		},
 		&gp_max_slices,
 		0, 0, INT_MAX, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_recv_port1", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("for fdw plan rewrite testing."),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_recv_port1,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},	
+	{
+		{"gp_fdw_motion_recv_port2", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("for fdw plan rewrite testing."),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_recv_port2,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_recv_port3", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("for fdw plan rewrite testing."),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_recv_port3,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
 	},
 
 	/* End-of-list marker */

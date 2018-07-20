@@ -902,7 +902,7 @@ ExplainNode(PlanState *planstate, List *ancestors,
 			const char *relationship, const char *plan_name,
 			ExplainState *es)
 {
-	Plan	   *plan = planstate->plan;
+	Plan	   *plan;
 	PlanState  *parentplanstate;
     Slice      *save_currentSlice = es->currentSlice;    /* save */
 	const char *pname;			/* node type name for text output */
@@ -917,6 +917,10 @@ ExplainNode(PlanState *planstate, List *ancestors,
 	int			motion_snd;
 	float		scaleFactor = 1.0; /* we will divide planner estimates by this factor to produce
 									  per-segment estimates */
+	if(planstate==NULL) 
+		return ;
+
+	plan = planstate->plan;
 
 	/* Remember who called us. */
 	parentplanstate = es->parentPlanState;

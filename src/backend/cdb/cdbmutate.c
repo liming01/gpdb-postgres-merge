@@ -673,6 +673,10 @@ apply_motion_mutator(Node *node, ApplyMotionState *context)
 	{
 		Motion	   *motion = (Motion *) newnode;
 
+		//for fdw motion
+		if(motion->plan.lefttree == NULL)
+			goto done;
+
 		/* Sanity check */
 		/* Sub plan must have flow */
 		Assert(flow && motion->plan.lefttree->flow);
@@ -1010,6 +1014,23 @@ make_hashed_motion(Plan *lefttree,
 	motion = make_motion(NULL, lefttree, NIL, useExecutorVarFormat);
 	add_slice_to_motion(motion, MOTIONTYPE_HASH, hashExpr, 0, NULL);
 	return motion;
+}
+
+Motion *
+make_fdw_motion(Plan *lefttree, bool useExecutorVarFormat)
+{
+	Motion *motion = makeNode(Motion);
+    Plan   *plan = &motion->plan;
+
+    plan->dispatch = DISPATCH_PARALLEL;
+
+    plan->flow = makeFlow(FLOW_PARTITIONED);
+	plan->flow->locustype = CdbLocusType_Strewn;
+
+    motion->outputSegIdx = NULL;
+    motion->numOutputSegs = 0;
+
+    return motion;
 }
 
 Motion *

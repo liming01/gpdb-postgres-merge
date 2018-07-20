@@ -4413,46 +4413,52 @@ FillSliceTable_walker(Node *node, void *context)
 		Slice	   *sendSlice;
 		Slice	   *recvSlice;
 
-		/* Top node of subplan should have a Flow node. */
-		Insist(motion->plan.lefttree && motion->plan.lefttree->flow);
-		sendFlow = motion->plan.lefttree->flow;
+		//for fdw motion
+		if(motion->plan.lefttree == NULL){
+			/* Look up the receiving (parent) gang's slice table entry. */
+			recvSlice = (Slice *)list_nth(sliceTable->slices, parentSliceIndex);
+		}else{
+			/* Top node of subplan should have a Flow node. */
+			Insist(motion->plan.lefttree && motion->plan.lefttree->flow);
+			sendFlow = motion->plan.lefttree->flow;
 
-		/* Look up the sending gang's slice table entry. */
-		sendSlice = (Slice *) list_nth(sliceTable->slices, motion->motionID);
+			/* Look up the sending gang's slice table entry. */
+			sendSlice = (Slice *) list_nth(sliceTable->slices, motion->motionID);
 
-		/* Look up the receiving (parent) gang's slice table entry. */
-		recvSlice = (Slice *)list_nth(sliceTable->slices, parentSliceIndex);
+			/* Look up the receiving (parent) gang's slice table entry. */
+			recvSlice = (Slice *)list_nth(sliceTable->slices, parentSliceIndex);
 
-		Assert(IsA(recvSlice, Slice));
-		Assert(recvSlice->sliceIndex == parentSliceIndex);
-		Assert(recvSlice->rootIndex == 0 ||
-			   (recvSlice->rootIndex > sliceTable->nMotions &&
-				recvSlice->rootIndex < list_length(sliceTable->slices)));
+			Assert(IsA(recvSlice, Slice));
+			Assert(recvSlice->sliceIndex == parentSliceIndex);
+			Assert(recvSlice->rootIndex == 0 ||
+				(recvSlice->rootIndex > sliceTable->nMotions &&
+					recvSlice->rootIndex < list_length(sliceTable->slices)));
 
-		/* Sending slice become a children of recv slice */
-		recvSlice->children = lappend_int(recvSlice->children, sendSlice->sliceIndex);
-		sendSlice->parentIndex = parentSliceIndex;
-		sendSlice->rootIndex = recvSlice->rootIndex;
+			/* Sending slice become a children of recv slice */
+			recvSlice->children = lappend_int(recvSlice->children, sendSlice->sliceIndex);
+			sendSlice->parentIndex = parentSliceIndex;
+			sendSlice->rootIndex = recvSlice->rootIndex;
 
-		/* The gang beneath a Motion will be a reader. */
-		sendSlice->gangType = GANGTYPE_PRIMARY_READER;
-
-		if (sendFlow->flotype != FLOW_SINGLETON)
-		{
-			sendSlice->gangSize = getgpsegmentCount();
+			/* The gang beneath a Motion will be a reader. */
 			sendSlice->gangType = GANGTYPE_PRIMARY_READER;
-		}
-		else
-		{
-			sendSlice->gangSize = 1;
-			sendSlice->gangType =
-				sendFlow->segindex == -1 ?
-				GANGTYPE_ENTRYDB_READER : GANGTYPE_SINGLETON_READER;
-		}
 
-		sendSlice->numGangMembersToBeActive =
-			sliceCalculateNumSendingProcesses(sendSlice);
+			if (sendFlow->flotype != FLOW_SINGLETON)
+			{
+				sendSlice->gangSize = getgpsegmentCount();
+				sendSlice->gangType = GANGTYPE_PRIMARY_READER;
+			}
+			else
+			{
+				sendSlice->gangSize = 1;
+				sendSlice->gangType =
+					sendFlow->segindex == -1 ?
+					GANGTYPE_ENTRYDB_READER : GANGTYPE_SINGLETON_READER;
+			}
 
+			sendSlice->numGangMembersToBeActive =
+				sliceCalculateNumSendingProcesses(sendSlice);
+
+		}
 		MemoryContextSwitchTo(oldcxt);
 
 		/* recurse into children */
