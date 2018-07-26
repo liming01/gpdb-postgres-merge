@@ -28,6 +28,8 @@
 #include "utils/memutils.h"
 #include "utils/typcache.h"
 
+#include "utils/guc.h"
+
 
 /*
  * MOTION NODE INFO DATA STRUCTURES
@@ -378,6 +380,43 @@ UpdateMotionLayerNode(MotionLayerState *mlStates, int16 motNodeID, bool preserve
 
 	/* All done!  Go back to caller memory-context. */
 	MemoryContextSwitchTo(oldCtxt);
+}
+void
+UpdateRootMotionToFDWReceivers(MotionLayerState *mlStates, SliceTable *sliceTable)
+{
+	Slice	   *mySlice;
+	Slice	   *aSlice;
+	ListCell   *cell;
+	CdbProcess *cdbProc;
+	MotionNodeEntry *pEntry;
+	int			totalNumProcs, i;
+
+	if(!gp_fdw_plan_rewrite)
+		return ;
+	mySlice = (Slice *) list_nth(sliceTable->slices, sliceTable->localSlice);
+
+	//only call at the child node of the root node
+	if(mySlice->parentIndex != 0 && mySlice->parentIndex != -1)
+		return ;
+
+	totalNumProcs = list_length(mySlice->primaryProcesses);
+	for (i = 0; i < totalNumProcs; i++)
+	{
+		cdbProc = list_nth(mySlice->primaryProcesses, i);
+		if (cdbProc){
+			switch(i){
+				case 0:
+					cdbProc->listenerPort = gp_fdw_motion_recv_port1;
+					break;
+				case 1:
+					cdbProc->listenerPort = gp_fdw_motion_recv_port2;
+					break;
+				case 2:
+					cdbProc->listenerPort = gp_fdw_motion_recv_port3;
+					break;
+			}
+		}
+	}
 }
 
 void

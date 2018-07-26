@@ -848,15 +848,12 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	Slice	   *sendSlice = NULL;
     Slice      *recvSlice = NULL;
     SliceTable *sliceTable = estate->es_sliceTable;
+    bool isFdwDumyMotion = (node->plan.lefttree==NULL); //for fdw dummy motion
 
 #ifdef CDB_MOTION_DEBUG
 	int			i;
 #endif
 
-	//for fdw dummy motion
-	//Todo: need to construct MotionState for fdw dummy motion
-	if(node->motionID==0) 
-		return NULL;
 
 	Assert(node->motionID > 0);
 	Assert(node->motionID <= sliceTable->nMotions);
@@ -876,9 +873,14 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	motionstate->cdbhash = NULL;
 
     /* Look up the sending gang's slice table entry. */
-    sendSlice = (Slice *)list_nth(sliceTable->slices, node->motionID);
-    Assert(IsA(sendSlice, Slice));
-	Assert(sendSlice->sliceIndex == node->motionID);
+//	if(isFdwDumyMotion){
+//		//sender is in foreign server
+//		sendSlice = NULL;
+//	}else{
+		sendSlice = (Slice *)list_nth(sliceTable->slices, node->motionID);
+		Assert(IsA(sendSlice, Slice));
+		Assert(sendSlice->sliceIndex == node->motionID);
+//	}
 
 	/* QD must fill in the global slice table. */
 	if (Gp_role == GP_ROLE_DISPATCH)
@@ -886,7 +888,12 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 		MemoryContext   oldcxt = MemoryContextSwitchTo(estate->es_query_cxt);
 
 		/* Look up the receiving (parent) gang's slice table entry. */
-		recvSlice = (Slice *)list_nth(sliceTable->slices, sendSlice->parentIndex);
+//		if(isFdwDumyMotion)
+//		{
+//			recvSlice = (Slice *) list_nth(sliceTable->slices, node->motionID);
+//		}else{
+			recvSlice = (Slice *) list_nth(sliceTable->slices, sendSlice->parentIndex);
+//		}
 
 		if (node->motionType == MOTIONTYPE_FIXED && node->numOutputSegs == 1)
 		{
@@ -919,20 +926,28 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	{
         Insist(Gp_role == GP_ROLE_EXECUTE);
 
-		recvSlice = (Slice *)list_nth(sliceTable->slices, sendSlice->parentIndex);
+//		if(isFdwDumyMotion){
+//
+//			recvSlice = (Slice *) list_nth(sliceTable->slices, node->motionID);
+//			motionstate->mstype = MOTIONSTATE_RECV;
+//
+//		}else{
 
-		if (LocallyExecutingSliceIndex(estate) == recvSlice->sliceIndex)
-		{
-			/* this is recv */
-			motionstate->mstype = MOTIONSTATE_RECV;
+			recvSlice = (Slice *)list_nth(sliceTable->slices, sendSlice->parentIndex);
+
+			if (LocallyExecutingSliceIndex(estate) == recvSlice->sliceIndex)
+			{
+				/* this is recv */
+				motionstate->mstype = MOTIONSTATE_RECV;
+			}
+			else if (LocallyExecutingSliceIndex(estate) == sendSlice->sliceIndex)
+			{
+				/* this is send */
+				motionstate->mstype = MOTIONSTATE_SEND;
+			}
+			/* TODO: If neither sending nor receiving, don't bother to initialize. */
 		}
-		else if (LocallyExecutingSliceIndex(estate) == sendSlice->sliceIndex)
-		{
-			/* this is send */
-			motionstate->mstype = MOTIONSTATE_SEND;
-        }
-		/* TODO: If neither sending nor receiving, don't bother to initialize. */
-	}
+//	}
 
     motionstate->tupleheapReady = false;
 	motionstate->sentEndOfStream = false;
@@ -948,7 +963,13 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	motionstate->numTuplesToParent = 0;
 
 	motionstate->stopRequested = false;
-	motionstate->numInputSegs = sendSlice->numGangMembersToBeActive;
+
+	if(isFdwDumyMotion)
+	{
+		motionstate->numInputSegs = 3; //Todo: need to fetch seg number of foreign server.
+	}else{
+		motionstate->numInputSegs = sendSlice->numGangMembersToBeActive;
+	}
 
 	/*
 	 * Miscellaneous initialization
@@ -968,7 +989,8 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	 */
 	if (!estate->eliminateAliens || motionstate->mstype == MOTIONSTATE_SEND)
 	{
-		outerPlanState(motionstate) = ExecInitNode(outerPlan(node), estate, eflags);
+		if (!isFdwDumyMotion)
+			outerPlanState(motionstate) = ExecInitNode(outerPlan(node), estate, eflags);
 	}
 
 	/*
@@ -1026,11 +1048,22 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	/*
 	 * Perform per-node initialization in the motion layer.
 	 */
-	UpdateMotionLayerNode(motionstate->ps.state->motionlayer_context, 
-			node->motionID, 
-			node->sendSorted, 
-			tupDesc, 
-			PlanStateOperatorMemKB((PlanState *) motionstate));
+//	if(isFdwDumyMotion)
+//	{
+//		node->motionID = sliceTable->nMotions;
+//		sliceTable->nMotions += 1;
+//		UpdateMotionLayerNode(motionstate->ps.state->motionlayer_context,
+//		                      node->motionID,
+//		                      node->sendSorted,
+//		                      tupDesc,
+//		                      PlanStateOperatorMemKB((PlanState *) motionstate));
+//	}else{
+		UpdateMotionLayerNode(motionstate->ps.state->motionlayer_context,
+		                      node->motionID,
+		                      node->sendSorted,
+		                      tupDesc,
+		                      PlanStateOperatorMemKB((PlanState *) motionstate));
+//	}
 
 	
 #ifdef CDB_MOTION_DEBUG

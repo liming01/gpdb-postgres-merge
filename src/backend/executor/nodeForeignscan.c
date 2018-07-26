@@ -57,6 +57,15 @@ ForeignNext(ForeignScanState *node)
 	{
 		slot = node->fdwroutine->IterateForeignScan(node);
 	}
+
+	// ??????????????????
+	if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
+		//for fdw motion child node
+		Plan *fdwMotionNode = outerPlanState(node);
+		if(fdwMotionNode)
+			slot = ExecProcNode(fdwMotionNode);
+	}
+
 	MemoryContextSwitchTo(oldcontext);
 
 	/*
@@ -208,10 +217,10 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 	}
 
 //	 if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
-//	 	//for fdw motion child node
-//	 	Plan *fdwMotionNode = outerPlan(node);
-//	 	if(fdwMotionNode)
-//	 		outerPlanState(scanstate) = ExecInitNode(fdwMotionNode, estate, eflags);
+	 	//for fdw motion child node
+	 	Plan *fdwMotionNode = outerPlan(node);
+	 	if(fdwMotionNode)
+	 		outerPlanState(scanstate) = ExecInitNode(fdwMotionNode, estate, eflags);
 //	 }
 
 	return scanstate;
@@ -226,6 +235,14 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 void
 ExecEndForeignScan(ForeignScanState *node)
 {
+	ExecEndNode(outerPlanState(node));
+	if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
+		//for fdw motion child node
+		Plan *fdwMotionNode = outerPlan(node);
+		if(fdwMotionNode)
+			ExecEndNode(fdwMotionNode);
+	}
+
 	/* Let the FDW shut down */
 	if (GpIdentity.segindex==0 && Gp_role == GP_ROLE_EXECUTE){
 		node->fdwroutine->EndForeignScan(node);

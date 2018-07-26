@@ -961,6 +961,7 @@ create_cursor(ForeignScanState *node)
 
 	// set fdw motion info to remote server guc
 	initStringInfo(&buf);
+	appendStringInfo(&buf, "set gp_vmem_idle_resource_timeout=300000;"); //only for debug
 	appendStringInfo(&buf, "set gp_fdw_plan_rewrite=true; set gp_fdw_motion_recv_port1=%u; set gp_fdw_motion_recv_port2=%u;  set gp_fdw_motion_recv_port3=%u;",
 	                 gp_fdw_motion_recv_port1, gp_fdw_motion_recv_port2, gp_fdw_motion_recv_port3);
 

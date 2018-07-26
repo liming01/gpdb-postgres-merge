@@ -674,8 +674,10 @@ apply_motion_mutator(Node *node, ApplyMotionState *context)
 		Motion	   *motion = (Motion *) newnode;
 
 		//for fdw motion
-		if(motion->plan.lefttree == NULL)
+		if(motion->plan.lefttree == NULL){
+			assignMotionID(newnode, context, NULL);
 			goto done;
+		}
 
 		/* Sanity check */
 		/* Sub plan must have flow */
@@ -1024,13 +1026,21 @@ make_fdw_motion(Plan *lefttree, bool useExecutorVarFormat)
 
     plan->dispatch = DISPATCH_PARALLEL;
 
-    plan->flow = makeFlow(FLOW_PARTITIONED);
-	plan->flow->locustype = CdbLocusType_Strewn;
+	// init variable like MOTIONTYPE_EXPLICIT branch in add_slice_to_motion()
+//    plan->flow = makeFlow(FLOW_PARTITIONED);
+//	plan->flow->locustype = CdbLocusType_Strewn;
+//
+//    motion->outputSegIdx = NULL;
+//    motion->numOutputSegs = 0;
 
-    motion->outputSegIdx = NULL;
-    motion->numOutputSegs = 0;
+	// init variable like MOTIONTYPE_HASH branch in add_slice_to_motion()
+	motion->plan.flow = makeFlow(FLOW_PARTITIONED);
+	motion->plan.flow->locustype = CdbLocusType_Hashed;
+	motion->plan.flow->hashExpr = copyObject(motion->hashExpr);
+	motion->numOutputSegs = getgpsegmentCount();
+	motion->outputSegIdx = makeDefaultSegIdxArray(getgpsegmentCount());
 
-    return motion;
+	return motion;
 }
 
 Motion *
