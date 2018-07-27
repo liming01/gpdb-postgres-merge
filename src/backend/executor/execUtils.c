@@ -2005,6 +2005,9 @@ InventorySliceTree(Slice ** sliceMap, int sliceIndex, SliceReq * req)
 	int			childIndex;
 	Slice	   *slice = sliceMap[sliceIndex];
 
+	if(slice->isFdwDummyMotionSender)
+		return ;
+
 	switch (slice->gangType)
 	{
 		case GANGTYPE_UNALLOCATED:
@@ -2158,13 +2161,26 @@ AssociateSlicesToProcesses(Slice ** sliceMap, int sliceIndex, SliceReq * req)
 			break;
 
 		case GANGTYPE_PRIMARY_READER:
-			Assert(slice->gangSize == getgpsegmentCount());
-			slice->primaryGang = req->vecNgangs[req->nxtNgang++];
-			Assert(slice->primaryGang != NULL);
-			slice->primaryProcesses = getCdbProcessList(slice->primaryGang,
-                                                        slice->sliceIndex,
-                                                        &slice->directDispatch);
-			Assert(sliceCalculateNumSendingProcesses(slice) == countNonNullValues(slice->primaryProcesses));
+			if(slice->isFdwDummyMotionSender){
+				Assert(slice->gangSize == getgpsegmentCount());
+				//Use fake info: the last gang
+				//Todo: need to fetch foreign gang and set CDBProcessing info for below lines
+				slice->primaryGang = req->vecNgangs[req->nxtNgang-1];
+				Assert(slice->primaryGang != NULL);
+				slice->primaryProcesses = getCdbProcessList(slice->primaryGang,
+				                                            slice->sliceIndex,
+				                                            &slice->directDispatch);
+				Assert(sliceCalculateNumSendingProcesses(slice) == countNonNullValues(slice->primaryProcesses));
+			}else{
+				Assert(slice->gangSize == getgpsegmentCount());
+				slice->primaryGang = req->vecNgangs[req->nxtNgang++];
+				Assert(slice->primaryGang != NULL);
+				slice->primaryProcesses = getCdbProcessList(slice->primaryGang,
+				                                            slice->sliceIndex,
+				                                            &slice->directDispatch);
+				Assert(sliceCalculateNumSendingProcesses(slice) == countNonNullValues(slice->primaryProcesses));
+			}
+
 			break;
 	}
 

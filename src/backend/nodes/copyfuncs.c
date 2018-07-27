@@ -4740,6 +4740,7 @@ _copySlice(const Slice *from)
 	COPY_SCALAR_FIELD(parentIndex);
 	COPY_NODE_FIELD(children);
 	COPY_NODE_FIELD(primaryProcesses);
+	COPY_SCALAR_FIELD(isFdwDummyMotionSender);
 
 	return newnode;
 }

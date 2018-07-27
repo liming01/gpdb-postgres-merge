@@ -59,11 +59,13 @@ ForeignNext(ForeignScanState *node)
 	}
 
 	// ??????????????????
-	if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
-		//for fdw motion child node
-		Plan *fdwMotionNode = outerPlanState(node);
-		if(fdwMotionNode)
-			slot = ExecProcNode(fdwMotionNode);
+	if(TupIsNull(slot)){
+		if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
+			//for fdw motion child node
+			Plan *fdwMotionNode = outerPlanState(node);
+			if(fdwMotionNode)
+				slot = ExecProcNode(fdwMotionNode);
+		}
 	}
 
 	MemoryContextSwitchTo(oldcontext);

@@ -108,6 +108,8 @@ typedef struct Slice
 	 * implemented.
 	 */
 	List	   *primaryProcesses;
+
+	bool   isFdwDummyMotionSender;
 } Slice;
 
 /*

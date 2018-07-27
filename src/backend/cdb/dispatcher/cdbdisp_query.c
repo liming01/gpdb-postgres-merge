@@ -1189,6 +1189,9 @@ cdbdisp_dispatchX(DispatchCommandQueryParms *pQueryParms,
 			 */
 			continue;
 		}
+		if(slice && slice->isFdwDummyMotionSender){
+			continue;
+		}
 
 		primaryGang = slice->primaryGang;
 		Assert(primaryGang != NULL);

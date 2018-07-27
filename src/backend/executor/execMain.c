@@ -4427,6 +4427,7 @@ FillSliceTable_walker(Node *node, void *context)
 
 		/* Look up the sending gang's slice table entry. */
 		sendSlice = (Slice *) list_nth(sliceTable->slices, motion->motionID);
+		sendSlice->isFdwDummyMotionSender = isFdwDumyMotion;
 
 		/* Look up the receiving (parent) gang's slice table entry. */
 		recvSlice = (Slice *)list_nth(sliceTable->slices, parentSliceIndex);

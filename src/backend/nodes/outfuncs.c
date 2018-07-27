@@ -4361,6 +4361,7 @@ _outSlice(StringInfo str, const Slice *node)
 	WRITE_NODE_FIELD(directDispatch.contentIds); /* List of int */
 	WRITE_DUMMY_FIELD(primaryGang);
 	WRITE_NODE_FIELD(primaryProcesses); /* List of (CDBProcess *) */
+	WRITE_BOOL_FIELD(isFdwDummyMotionSender);
 }
 
 static void
