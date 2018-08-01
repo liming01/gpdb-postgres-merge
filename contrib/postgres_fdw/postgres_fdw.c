@@ -27,8 +27,11 @@
 #include "parser/parsetree.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
+#include "utils/builtins.h"
 
 #include "utils/guc.h"
+#include "tcop/idle_resource_cleaner.h"
+#include "cdb/cdbgang.h"
 
 PG_MODULE_MAGIC;
 
@@ -189,6 +192,8 @@ static void get_remote_estimate(const char *sql,
 					int *width,
 					Cost *startup_cost,
 					Cost *total_cost);
+static int get_fdw_motion_send_guc(PGconn	*conn, char *sql);
+static void change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn);
 static void create_cursor(ForeignScanState *node);
 static void fetch_more_data(ForeignScanState *node);
 static void close_cursor(PGconn *conn, unsigned int cursor_number);
@@ -872,12 +877,80 @@ get_remote_estimate(const char *sql, PGconn *conn,
 		res = NULL;
 	}
 	PG_CATCH();
-	{
-		if (res)
+	{ if (res)
 			PQclear(res);
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
+}
+
+static int
+get_fdw_motion_send_guc(PGconn	*conn, char *sql)
+{
+	PGresult   *res;
+	int val;
+
+	// set fdw motion receiver info to remote server guc
+	res = PQexec(conn, sql);
+
+	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		pgfdw_report_error(ERROR, res, true, sql);
+
+	/* next, print out the rows */
+	Assert(PQntuples(res)==1 && PQnfields(res)==1);
+	val = pg_atoi(PQgetvalue(res, 0, 0), sizeof(int), 0);
+
+	PQclear(res);
+	return val;
+}
+
+static void
+change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
+{
+	PlanState * ps_dummy_motion = outerPlanState(node);
+	MotionState *motionStates;
+	Motion *motion;
+	EState *estate;
+	SliceTable *sliceTable;
+	Slice	   *sendSlice = NULL;
+	CdbProcess *cdbProc;
+	int			totalNumProcs, i;
+
+	if(ps_dummy_motion ==NULL){
+		return;
+	}
+
+	Assert(IsA(ps_dummy_motion, MotionState));
+	motionStates = (MotionState*)ps_dummy_motion;
+	Assert(IsA(motionStates->ps.plan, Motion));
+	motion = (Motion*)motionStates->ps.plan;
+	Assert(motion->plan.lefttree==NULL);
+	estate = motionStates->ps.state;
+	sliceTable = estate->es_sliceTable;
+
+	sendSlice = (Slice *)list_nth(sliceTable->slices, motion->motionID);
+
+	totalNumProcs = list_length(sendSlice->primaryProcesses);
+	for (i = 0; i < totalNumProcs; i++)
+	{
+		cdbProc = list_nth(sendSlice->primaryProcesses, i);
+		if (cdbProc){
+			switch(i){
+				case 0:
+					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port1;");
+					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid1;");
+					break;
+				case 1:
+					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port2;");
+					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid2;");
+					break;
+				case 2:
+					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port3;");
+					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid3;");
+					break;
+			}
+		}
+	}
 }
 
 /*
@@ -957,11 +1030,10 @@ create_cursor(ForeignScanState *node)
 
 	/* Construct the DECLARE CURSOR command */
 	sql = strVal(list_nth(festate->fdw_private, FdwPrivateSelectSql));
-	initStringInfo(&buf);
 
-	// set fdw motion info to remote server guc
+	// set fdw motion receiver info to remote server guc
 	initStringInfo(&buf);
-	appendStringInfo(&buf, "set gp_vmem_idle_resource_timeout=300000;"); //only for debug
+	appendStringInfo(&buf, "set gp_vmem_idle_resource_timeout=%u;", IdleSessionGangTimeout); //only for debug
 	appendStringInfo(&buf, "set gp_fdw_plan_rewrite=true; set gp_fdw_motion_recv_port1=%u; set gp_fdw_motion_recv_port2=%u;  set gp_fdw_motion_recv_port3=%u;",
 	                 gp_fdw_motion_recv_port1, gp_fdw_motion_recv_port2, gp_fdw_motion_recv_port3);
 
@@ -972,6 +1044,7 @@ create_cursor(ForeignScanState *node)
 
 	PQclear(res);
 	pfree(buf.data);
+	// end of set fdw motion receiver
 
 	initStringInfo(&buf);
 	appendStringInfo(&buf, "DECLARE c%u CURSOR FOR\n%s",
@@ -997,6 +1070,9 @@ create_cursor(ForeignScanState *node)
 
 	/* Clean up */
 	pfree(buf.data);
+
+	// fetch fdw motion sender info from remote server guc
+	change_fdw_motion_send_info(node, conn);
 }
 
 /*

@@ -275,9 +275,15 @@ extern bool gp_create_table_random_default_distribution;
 extern bool gp_allow_non_uniform_partitioning_ddl;
 extern bool gp_enable_exchange_default_partition;
 extern bool gp_fdw_plan_rewrite;
-extern int*gp_fdw_motion_recv_port1;
-extern int*gp_fdw_motion_recv_port2;
-extern int*gp_fdw_motion_recv_port3;
+extern int* gp_fdw_motion_recv_port1;
+extern int* gp_fdw_motion_recv_port2;
+extern int* gp_fdw_motion_recv_port3;
+extern int* gp_fdw_motion_send_port1;
+extern int* gp_fdw_motion_send_port2;
+extern int* gp_fdw_motion_send_port3;
+extern int* gp_fdw_motion_send_pid1;
+extern int* gp_fdw_motion_send_pid2;
+extern int* gp_fdw_motion_send_pid3;
 extern int  dtx_phase2_retry_count;
 
 /* WAL replication debug gucs */

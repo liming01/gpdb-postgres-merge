@@ -164,6 +164,12 @@ bool		gp_fdw_plan_rewrite = false;
 int        *gp_fdw_motion_recv_port1 = 0;
 int        *gp_fdw_motion_recv_port2 = 0;
 int        *gp_fdw_motion_recv_port3 = 0;
+int        *gp_fdw_motion_send_port1 = 0;
+int        *gp_fdw_motion_send_port2 = 0;
+int        *gp_fdw_motion_send_port3 = 0;
+int        *gp_fdw_motion_send_pid1 = 0;
+int        *gp_fdw_motion_send_pid2 = 0;
+int        *gp_fdw_motion_send_pid3 = 0;
 int			dtx_phase2_retry_count = 0;
 
 bool		log_dispatch_stats = false;
@@ -4464,7 +4470,66 @@ struct config_int ConfigureNamesInt_gp[] =
 		0, 0, INT_MAX,
 		NULL, NULL, NULL
 	},
-
+	{
+		{"gp_fdw_motion_send_port1", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("for fdw plan rewrite testing."),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_send_port1,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_send_port2", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("for fdw plan rewrite testing."),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_send_port2,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_send_port3", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("for fdw plan rewrite testing."),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_send_port3,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_send_pid1", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("for fdw plan rewrite testing."),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_send_pid1,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_send_pid2", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("for fdw plan rewrite testing."),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_send_pid2,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+	{
+		{"gp_fdw_motion_send_pid3", PGC_USERSET, DEVELOPER_OPTIONS,
+		 gettext_noop("for fdw plan rewrite testing."),
+		 NULL,
+		 GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE | GUC_GPDB_ADDOPT
+		},
+		&gp_fdw_motion_send_pid3,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, 0, 0, NULL, NULL

@@ -419,6 +419,42 @@ UpdateRootMotionToFDWReceivers(MotionLayerState *mlStates, SliceTable *sliceTabl
 	}
 }
 
+static void
+setFDWMotionSenderInfoToGuc(Slice *aSlice)
+{
+	CdbProcess *cdbProc;
+	int			totalNumProcs, i;
+
+	if(!gp_fdw_plan_rewrite)
+		return ;
+
+	//only call at the child node of the root node
+	if(aSlice->parentIndex != 0 && aSlice->parentIndex != -1)
+		return ;
+
+	totalNumProcs = list_length(aSlice->primaryProcesses);
+	for (i = 0; i < totalNumProcs; i++)
+	{
+		cdbProc = list_nth(aSlice->primaryProcesses, i);
+		if (cdbProc){
+			switch(i){
+				case 0:
+					gp_fdw_motion_send_port1 = cdbProc->listenerPort;
+					gp_fdw_motion_send_pid1 = cdbProc->pid;
+					break;
+				case 1:
+					gp_fdw_motion_send_port2 = cdbProc->listenerPort;
+					gp_fdw_motion_send_pid2 = cdbProc->pid;
+					break;
+				case 2:
+					gp_fdw_motion_send_port3 = cdbProc->listenerPort;
+					gp_fdw_motion_send_pid3 = cdbProc->pid;
+					break;
+			}
+		}
+	}
+}
+
 void
 UpdateMotionExpectedReceivers(MotionLayerState *mlStates, SliceTable *sliceTable)
 {
@@ -435,6 +471,10 @@ UpdateMotionExpectedReceivers(MotionLayerState *mlStates, SliceTable *sliceTable
 		int			childId = lfirst_int(cell);
 
 		aSlice = (Slice *) list_nth(sliceTable->slices, childId);
+
+		/* Set fdw motion sender info to guc, wait for federation server to get these guc
+		 */
+		setFDWMotionSenderInfoToGuc(aSlice);
 
 		/*
 		 * If we're using directed-dispatch we have dummy primary-process
