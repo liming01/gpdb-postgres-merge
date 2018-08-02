@@ -34,6 +34,9 @@
 #include "executor/execUtils.h" //for getCurrentSlice()
 #include "cdb/ml_ipc.h"
 
+#include "unistd.h"
+#include "utils/builtins.h"
+
 static TupleTableSlot *ForeignNext(ForeignScanState *node);
 static bool ForeignRecheck(ForeignScanState *node, TupleTableSlot *slot);
 
@@ -51,6 +54,8 @@ ForeignNext(ForeignScanState *node)
 	ForeignScan *plan = (ForeignScan *) node->ss.ps.plan;
 	ExprContext *econtext = node->ss.ps.ps_ExprContext;
 	MemoryContext oldcontext;
+	FILE *file;
+	char tmpfilename[MAXPGPATH];
 
 	/* Call the Iterate function in short-lived context */
 	oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
@@ -63,7 +68,56 @@ ForeignNext(ForeignScanState *node)
 	MotionState *motionStates =  (MotionState*) outerPlanState(node);
 	if(motionStates!=NULL){
 		Motion *motion = (Motion*)motionStates->ps.plan;
+		SliceTable *sliceTable;
+		EState *estate;
+		Slice	   *sendSlice, *recvSlice;
+		int			totalNumProcs, i;
+		CdbProcess *cdbProc;
+
 		Assert(motion->plan.lefttree==NULL);
+
+		estate = motionStates->ps.state;
+		sliceTable = estate->es_sliceTable;
+		sendSlice = (Slice *)list_nth(sliceTable->slices, motion->motionID);
+		recvSlice = (Slice *) list_nth(sliceTable->slices, sendSlice->parentIndex);
+		totalNumProcs = list_length(sendSlice->primaryProcesses);
+
+		cdbProc = list_nth(recvSlice->primaryProcesses, 0);
+		snprintf(tmpfilename, MAXPGPATH, "/tmp/interconnect_fdw_motion_sender_info_%d.list",cdbProc->pid);
+
+		//wait until /tmp/interconnect_fdw_motion_sender_info file exists
+		while(access(tmpfilename, F_OK ) == -1) {
+			pg_usleep(10);
+		}
+		file = fopen(tmpfilename, "r");
+
+		for (i = 0; i < totalNumProcs; i++)
+		{
+			int val1, val2;
+			cdbProc = list_nth(sendSlice->primaryProcesses, i);
+
+			fread(&val1, sizeof(val1), 1, file);
+			fread(&val2, sizeof(val2), 1, file);
+
+			if (cdbProc){
+				switch(i){
+					case 0:
+						cdbProc->listenerPort = val1;
+						cdbProc->pid= val2;
+						break;
+					case 1:
+						cdbProc->listenerPort = val1;
+						cdbProc->pid= val2;
+						break;
+					case 2:
+						cdbProc->listenerPort = val1;
+						cdbProc->pid= val2;
+						break;
+				}
+			}
+		}
+		fclose(file);
+
 		SetupInterconnect4FdwMotion(motionStates->ps.state);
 	}
 
@@ -250,8 +304,10 @@ ExecEndForeignScan(ForeignScanState *node)
 	if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
 		//for fdw motion child node
 		Plan *fdwMotionNode = outerPlan(node);
-		if(fdwMotionNode)
+		if(fdwMotionNode){
 			ExecEndNode(fdwMotionNode);
+			remove("/tmp/interconnect_fdw_motion_sender_info_*.list");
+		}
 	}
 
 	/* Let the FDW shut down */

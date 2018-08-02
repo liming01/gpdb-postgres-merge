@@ -192,7 +192,7 @@ static void get_remote_estimate(const char *sql,
 					int *width,
 					Cost *startup_cost,
 					Cost *total_cost);
-static int get_fdw_motion_send_guc(PGconn	*conn, char *sql);
+static int get_fdw_motion_send_guc(PGconn	*conn, char *sql, FILE *fp);
 static void change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn);
 static void create_cursor(ForeignScanState *node);
 static void fetch_more_data(ForeignScanState *node);
@@ -885,7 +885,7 @@ get_remote_estimate(const char *sql, PGconn *conn,
 }
 
 static int
-get_fdw_motion_send_guc(PGconn	*conn, char *sql)
+get_fdw_motion_send_guc(PGconn	*conn, char *sql, FILE *fp)
 {
 	PGresult   *res;
 	int val;
@@ -898,7 +898,10 @@ get_fdw_motion_send_guc(PGconn	*conn, char *sql)
 
 	/* next, print out the rows */
 	Assert(PQntuples(res)==1 && PQnfields(res)==1);
-	val = pg_atoi(PQgetvalue(res, 0, 0), sizeof(int), 0);
+	char * str = PQgetvalue(res, 0, 0);
+	val = pg_atoi(str, sizeof(int), 0);
+
+	fwrite(&val, sizeof(val), 1, fp);
 
 	PQclear(res);
 	return val;
@@ -912,9 +915,11 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 	Motion *motion;
 	EState *estate;
 	SliceTable *sliceTable;
-	Slice	   *sendSlice = NULL;
+	Slice	   *sendSlice = NULL, *recvSlice=NULL;
 	CdbProcess *cdbProc;
 	int			totalNumProcs, i;
+	FILE *fp;
+	char tmpfilename[MAXPGPATH];
 
 	if(ps_dummy_motion ==NULL){
 		return;
@@ -929,6 +934,10 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 	sliceTable = estate->es_sliceTable;
 
 	sendSlice = (Slice *)list_nth(sliceTable->slices, motion->motionID);
+	recvSlice = (Slice *) list_nth(sliceTable->slices, sendSlice->parentIndex);
+	cdbProc = list_nth(recvSlice->primaryProcesses, 0);
+	snprintf(tmpfilename, MAXPGPATH, "/tmp/interconnect_fdw_motion_sender_info_%d.list",cdbProc->pid);
+	fp = fopen(tmpfilename, "w" );
 
 	totalNumProcs = list_length(sendSlice->primaryProcesses);
 	for (i = 0; i < totalNumProcs; i++)
@@ -937,20 +946,22 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 		if (cdbProc){
 			switch(i){
 				case 0:
-					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port1;");
-					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid1;");
+				    cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port1;", fp);
+					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid1;", fp);
 					break;
 				case 1:
-					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port2;");
-					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid2;");
+					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port2;", fp);
+					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid2;", fp);
 					break;
 				case 2:
-					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port3;");
-					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid3;");
+					cdbProc->listenerPort = get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_port3;", fp);
+					cdbProc->pid= get_fdw_motion_send_guc(conn, "show gp_fdw_motion_send_pid3;", fp);
 					break;
 			}
 		}
 	}
+
+	fclose(fp);
 }
 
 /*
