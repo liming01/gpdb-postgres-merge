@@ -32,6 +32,7 @@
 #include "cdb/cdbgang.h"        //for CdbProcess 
 #include "executor/execdesc.h"  //for Slice
 #include "executor/execUtils.h" //for getCurrentSlice()
+#include "cdb/ml_ipc.h"
 
 static TupleTableSlot *ForeignNext(ForeignScanState *node);
 static bool ForeignRecheck(ForeignScanState *node, TupleTableSlot *slot);
@@ -56,6 +57,14 @@ ForeignNext(ForeignScanState *node)
 	if (GpIdentity.segindex==0 && Gp_role == GP_ROLE_EXECUTE)
 	{
 		slot = node->fdwroutine->IterateForeignScan(node);
+	}
+
+	//set up fdw dummy motion inter connect ( from foreign server segments to local segments)
+	MotionState *motionStates =  (MotionState*) outerPlanState(node);
+	if(motionStates!=NULL){
+		Motion *motion = (Motion*)motionStates->ps.plan;
+		Assert(motion->plan.lefttree==NULL);
+		SetupInterconnect4FdwMotion(motionStates->ps.state);
 	}
 
 	// ??????????????????

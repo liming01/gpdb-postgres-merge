@@ -79,7 +79,6 @@ static bool interconnect_resowner_callback_registered;
 /*=========================================================================
  * FUNCTIONS PROTOTYPES
  */
-
 static void setupSeqServerConnection(char *hostname, uint16 port);
 
 static void interconnect_abort_callback(ResourceReleasePhase phase,
@@ -701,7 +700,7 @@ SetupInterconnect(EState *estate)
 	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
 		icContext = SetupUDPIFCInterconnect(estate->es_sliceTable);
 	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
-		icContext = SetupTCPInterconnect(estate->es_sliceTable);
+		icContext = SetupTCPInterconnect(estate->es_sliceTable, NULL, false);
 	else
 		Assert("unsupported expected interconnect type");
 
@@ -713,6 +712,39 @@ SetupInterconnect(EState *estate)
 	h->interconnect_context = icContext;
 	estate->interconnect_context = icContext;
 	estate->es_interconnect_is_setup = true;
+}
+
+void
+SetupInterconnect4FdwMotion(EState *estate)
+{
+	interconnect_handle_t *h;
+	ChunkTransportState *icContext = NULL;
+	MemoryContext oldContext;
+
+	if (!estate->interconnect_context)
+	{
+		elog(FATAL, "SetupInterconnect: Need to call SetupInterconnect() firstly to initiate inter connect.");
+	}
+	else if (!estate->es_sliceTable)
+	{
+		elog(FATAL, "SetupInterconnect: no slice table ?");
+	}
+
+	h = allocate_interconnect_handle();
+
+	Assert(InterconnectContext != NULL);
+	oldContext = MemoryContextSwitchTo(InterconnectContext);
+
+	if (Gp_interconnect_type == INTERCONNECT_TYPE_UDPIFC)
+		estate->interconnect_context = SetupUDPIFCInterconnect(estate->es_sliceTable);
+	else if (Gp_interconnect_type == INTERCONNECT_TYPE_TCP)
+		estate->interconnect_context = SetupTCPInterconnect(estate->es_sliceTable, estate->interconnect_context, true);
+	else
+		Assert("unsupported expected interconnect type");
+
+	MemoryContextSwitchTo(oldContext);
+
+	h->interconnect_context = icContext;
 }
 
 /*

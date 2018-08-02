@@ -128,7 +128,8 @@ getMotionConn(ChunkTransportStateEntry *pEntry, int iConn)
 
 static ChunkTransportStateEntry *startOutgoingConnections(ChunkTransportState *transportStates,
 						 Slice *sendSlice,
-						 int *pOutgoingCount);
+						 int *pOutgoingCount,
+						 bool isFdwDumyMotionOnly);
 
 static void format_fd_set(StringInfo buf, int nfds, mpp_fd_set *fds, char *pfx, char *sfx);
 static char *format_sockaddr(struct sockaddr *sa, char *buf, int bufsize);
@@ -551,7 +552,8 @@ flushIncomingData(int fd)
 static ChunkTransportStateEntry *
 startOutgoingConnections(ChunkTransportState *transportStates,
 						 Slice *sendSlice,
-						 int *pOutgoingCount)
+						 int *pOutgoingCount,
+						 bool isFdwDumyMotionOnly)
 {
 	ChunkTransportStateEntry *pEntry;
 	MotionConn *conn;
@@ -560,6 +562,10 @@ startOutgoingConnections(ChunkTransportState *transportStates,
 	CdbProcess *cdbProc;
 
 	*pOutgoingCount = 0;
+
+	if(isFdwDumyMotionOnly != sendSlice->isFdwDummyMotionSender){
+			return NULL;
+	}
 
 	recvSlice = (Slice *) list_nth(transportStates->sliceTable->slices, sendSlice->parentIndex);
 
@@ -1383,7 +1389,7 @@ acceptIncomingConnection(void)
 
 /* See ml_ipc.h */
 ChunkTransportState *
-SetupTCPInterconnect(SliceTable *sliceTable)
+SetupTCPInterconnect(SliceTable *sliceTable, ChunkTransportState *cts, bool isFdwDumyMotionOnly)
 {
 	int			i,
 				index,
@@ -1405,25 +1411,29 @@ SetupTCPInterconnect(SliceTable *sliceTable)
 	ChunkTransportStateEntry *sendingChunkTransportState = NULL;
 	ChunkTransportState *interconnect_context;
 
-	SIMPLE_FAULT_INJECTOR(InterconnectSetupPalloc);
-	interconnect_context = palloc0(sizeof(ChunkTransportState));
+	if(!isFdwDumyMotionOnly){
+		SIMPLE_FAULT_INJECTOR(InterconnectSetupPalloc);
+		interconnect_context = palloc0(sizeof(ChunkTransportState));
 
-	/* initialize state variables */
-	Assert(interconnect_context->size == 0);
-	interconnect_context->size = CTS_INITIAL_SIZE;
-	interconnect_context->states = palloc0(CTS_INITIAL_SIZE * sizeof(ChunkTransportStateEntry));
+		/* initialize state variables */
+		Assert(interconnect_context->size == 0);
+		interconnect_context->size = CTS_INITIAL_SIZE;
+		interconnect_context->states = palloc0(CTS_INITIAL_SIZE * sizeof(ChunkTransportStateEntry));
 
-	interconnect_context->teardownActive = false;
-	interconnect_context->activated = false;
-	interconnect_context->incompleteConns = NIL;
-	interconnect_context->sliceTable = copyObject(sliceTable);
-	interconnect_context->sliceId = sliceTable->localSlice;
+		interconnect_context->teardownActive = false;
+		interconnect_context->activated = false;
+		interconnect_context->incompleteConns = NIL;
+		interconnect_context->sliceTable = copyObject(sliceTable);
+		interconnect_context->sliceId = sliceTable->localSlice;
 
-	interconnect_context->RecvTupleChunkFrom = RecvTupleChunkFromTCP;
-	interconnect_context->RecvTupleChunkFromAny = RecvTupleChunkFromAnyTCP;
-	interconnect_context->SendEos = SendEosTCP;
-	interconnect_context->SendChunk = SendChunkTCP;
-	interconnect_context->doSendStopMessage = doSendStopMessageTCP;
+		interconnect_context->RecvTupleChunkFrom = RecvTupleChunkFromTCP;
+		interconnect_context->RecvTupleChunkFromAny = RecvTupleChunkFromAnyTCP;
+		interconnect_context->SendEos = SendEosTCP;
+		interconnect_context->SendChunk = SendChunkTCP;
+		interconnect_context->doSendStopMessage = doSendStopMessageTCP;
+	}else{
+		interconnect_context = cts;
+	}
 
 	mySlice = (Slice *) list_nth(interconnect_context->sliceTable->slices, sliceTable->localSlice);
 
@@ -1437,7 +1447,7 @@ SetupTCPInterconnect(SliceTable *sliceTable)
 
 	/* Initiate outgoing connections. */
 	if (mySlice->parentIndex != -1)
-		sendingChunkTransportState = startOutgoingConnections(interconnect_context, mySlice, &expectedTotalOutgoing);
+		sendingChunkTransportState = startOutgoingConnections(interconnect_context, mySlice, &expectedTotalOutgoing, isFdwDumyMotionOnly);
 
 	/* now we'll do some setup for each of our Receiving Motion Nodes. */
 	foreach(cell, mySlice->children)
@@ -1450,6 +1460,9 @@ SetupTCPInterconnect(SliceTable *sliceTable)
 #endif
 
 		aSlice = (Slice *) list_nth(interconnect_context->sliceTable->slices, childId);
+		if(isFdwDumyMotionOnly != aSlice->isFdwDummyMotionSender){
+				continue;
+		}
 
 		/*
 		 * If we're using directed-dispatch we have dummy primary-process

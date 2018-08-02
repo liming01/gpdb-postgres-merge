@@ -1737,6 +1737,7 @@ InitSliceTable(EState *estate, int nMotions, int nSubplans)
 		slice->parentIndex = -1;
 		slice->children = NIL;
 		slice->primaryProcesses = NIL;
+		slice->isFdwDummyMotionSender = false;
 
 		table->slices = lappend(table->slices, slice);
 	}

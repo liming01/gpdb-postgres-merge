@@ -110,6 +110,7 @@ extern int  GetSeqServerFD(void);
  *
  */
 extern void SetupInterconnect(struct EState *estate);
+extern void SetupInterconnect4FdwMotion(struct EState *estate);
 
 /* The TeardownInterconnect() function should be called at the end of executing
  * a DML statement to close down all socket resources that were setup during
@@ -323,7 +324,7 @@ extern void markUDPConnInactiveIFC(MotionConn *conn);
 extern void CleanupMotionTCP(void);
 extern void CleanupMotionUDPIFC(void);
 extern void WaitInterconnectQuitUDPIFC(void);
-extern ChunkTransportState *SetupTCPInterconnect(SliceTable *sliceTable);
+extern ChunkTransportState *SetupTCPInterconnect(SliceTable *sliceTable, ChunkTransportState *cts, bool isFdwDumyMotionOnly);
 extern ChunkTransportState *SetupUDPIFCInterconnect(SliceTable *sliceTable);
 extern void TeardownTCPInterconnect(ChunkTransportState *transportStates,
 								 bool forceEOS, bool hasError);
