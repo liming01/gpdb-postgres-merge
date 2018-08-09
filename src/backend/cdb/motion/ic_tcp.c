@@ -35,6 +35,7 @@
 #include "cdb/tupchunklist.h"
 #include "cdb/ml_ipc.h"
 #include "cdb/cdbvars.h"
+#include "utils/guc.h"
 
 #include <fcntl.h>
 #include <limits.h>
@@ -571,6 +572,7 @@ startOutgoingConnections(ChunkTransportState *transportStates,
 
 	adjustMasterRouting(recvSlice);
 
+
 	if (gp_interconnect_aggressive_retry)
 	{
 		if ((list_length(recvSlice->children) * sendSlice->numGangMembersToBeActive) > listenerBacklog)
@@ -584,8 +586,15 @@ startOutgoingConnections(ChunkTransportState *transportStates,
 			 GpIdentity.segindex, sendSlice->sliceIndex,
 			 (transportStates->aggressiveRetry ? "active" : "inactive"));
 
-	pEntry = createChunkTransportState(transportStates,
-									   sendSlice,
+
+	if(gp_fdw_plan_rewrite && (sendSlice->parentIndex==-1 || sendSlice->parentIndex==0)){
+
+		// add fake CdbProcess for fdw dummy motion receiver
+		recvSlice->primaryProcesses = makeCdbProcess4FDWDummyMotionRecver(recvSlice->primaryProcesses);
+
+	}
+
+	pEntry = createChunkTransportState(transportStates, sendSlice,
 									   recvSlice,
 									   list_length(recvSlice->primaryProcesses));
 

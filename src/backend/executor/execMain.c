@@ -751,7 +751,7 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 										 estate->interconnect_context);
 			}
 			// Replace the direct child nodes of ROOT node motion target to federation server fdw dummy node receiver
-			UpdateRootMotionToFDWReceivers(estate->motionlayer_context, estate->es_sliceTable);
+//			UpdateRootMotionToFDWReceivers(estate->motionlayer_context, estate->es_sliceTable);
 		}
 		else if (exec_identity == GP_ROOT_SLICE)
 		{

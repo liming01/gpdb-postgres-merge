@@ -77,6 +77,7 @@ extern Gang *AllocateReaderGang(GangType type, char *portal_name);
 extern Gang *AllocateWriterGang(void);
 
 extern List *getCdbProcessList(Gang *gang, int sliceIndex, struct DirectDispatchInfo *directDispatch);
+extern List *makeCdbProcess4FDWDummyMotionRecver(List *cdbprocList);
 
 extern bool GangOK(Gang *gp);
 

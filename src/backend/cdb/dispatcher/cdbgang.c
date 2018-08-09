@@ -955,6 +955,46 @@ getSegmentDescriptorFromGang(const Gang *gp, int seg)
 
 	return NULL;
 }
+/**
+ * Add fake CdbProcess for fdw dummy motion receiver
+ * @param cdbprocList is the CdbProcess list when to append
+ * @return the list after append fake ones.
+ */
+List*
+makeCdbProcess4FDWDummyMotionRecver(List *cdbprocList)
+{
+
+	if (!gp_fdw_plan_rewrite)
+	{
+		elog(ERROR, "it only can be called when gp_fdw_plan_rewrite");
+	}
+
+
+	CdbProcess *mp = (CdbProcess *)linitial(cdbprocList); //temp use local master hostname
+
+	for(int i=0; i<3; i++){
+		CdbProcess *process = (CdbProcess *) makeNode(CdbProcess);
+
+		process->listenerAddr = mp->listenerAddr;
+		switch(i){
+			case 0:
+				process->listenerPort = gp_fdw_motion_recv_port1;
+				break;
+			case 1:
+				process->listenerPort = gp_fdw_motion_recv_port2;
+				break;
+			case 2:
+				process->listenerPort = gp_fdw_motion_recv_port3;
+				break;
+		}
+		process->contentid = i;
+		process->pid = 0;
+
+		cdbprocList = lappend(cdbprocList, process);
+	}
+
+	return cdbprocList;
+}
 
 static CdbProcess *
 makeCdbProcess(SegmentDatabaseDescriptor *segdbDesc)

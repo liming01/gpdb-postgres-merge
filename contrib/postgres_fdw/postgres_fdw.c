@@ -938,6 +938,9 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 	cdbProc = list_nth(recvSlice->primaryProcesses, 0);
 	snprintf(tmpfilename, MAXPGPATH, "/tmp/interconnect_fdw_motion_sender_info_%d.list",cdbProc->pid);
 	fp = fopen(tmpfilename, "w" );
+	if(flock(fileno(fp),LOCK_EX)==-1){
+		elog(ERROR, "Can not flock() file: %s", tmpfilename);
+	}
 
 	totalNumProcs = list_length(sendSlice->primaryProcesses);
 	for (i = 0; i < totalNumProcs; i++)
@@ -960,6 +963,7 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 			}
 		}
 	}
+	flock(fileno(fp),LOCK_UN);
 
 	fclose(fp);
 }

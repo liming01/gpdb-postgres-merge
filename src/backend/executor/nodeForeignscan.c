@@ -90,6 +90,9 @@ ForeignNext(ForeignScanState *node)
 			pg_usleep(10);
 		}
 		file = fopen(tmpfilename, "r");
+		if(flock(fileno(file),LOCK_SH)==-1){
+			elog(ERROR, "Can not flock() file: %s", tmpfilename);
+		}
 
 		for (i = 0; i < totalNumProcs; i++)
 		{
@@ -116,6 +119,7 @@ ForeignNext(ForeignScanState *node)
 				}
 			}
 		}
+		flock(fileno(file),LOCK_UN);
 		fclose(file);
 
 		SetupInterconnect4FdwMotion(motionStates->ps.state);
