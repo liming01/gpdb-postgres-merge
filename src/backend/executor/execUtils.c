@@ -188,6 +188,7 @@ CreateExecutorState(void)
 	estate->interconnect_context = NULL;
 	estate->motionlayer_context = NULL;
 	estate->es_interconnect_is_setup = false;
+	estate->isFdwMotionInterConnSetup = false;
 	estate->active_recv_id = -1;
 	estate->es_got_eos = false;
 	estate->cancelUnfinished = false;
@@ -2380,6 +2381,7 @@ void mppExecutorFinishup(QueryDesc *queryDesc)
 		 */
 		TeardownInterconnect(estate->interconnect_context, estate->cancelUnfinished, false);
 		estate->es_interconnect_is_setup = false;
+		estate->isFdwMotionInterConnSetup = false;
 	}
 }
 
@@ -2452,6 +2454,7 @@ void mppExecutorCleanup(QueryDesc *queryDesc)
 	{
 		TeardownInterconnect(estate->interconnect_context, true /* force EOS */, true);
 		estate->es_interconnect_is_setup = false;
+		estate->isFdwMotionInterConnSetup = false;
 	}
 
 	/* GPDB hook for collecting query info */

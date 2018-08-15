@@ -32,6 +32,7 @@
 #include "utils/guc.h"
 #include "tcop/idle_resource_cleaner.h"
 #include "cdb/cdbgang.h"
+#include "cdb/ml_ipc.h"
 
 PG_MODULE_MAGIC;
 
@@ -151,6 +152,16 @@ typedef struct ConversionLocation
 	AttrNumber	cur_attno;		/* attribute number being processed, or 0 */
 } ConversionLocation;
 
+//for pass param to thread calling func
+typedef struct ForeignQueryThreadFuncParam
+{
+	PGconn	   *conn;
+	char	   *sql;
+	int			numParams;
+	Oid		   *types;
+	const char **values;
+	PGresult  **ppRes;
+}ForeignQueryThreadFuncParam;
 /*
  * SQL functions
  */
@@ -968,6 +979,13 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 	fclose(fp);
 }
 
+static void *
+thread_DoRemoteQuery(void *arg){
+	ForeignQueryThreadFuncParam *param = (ForeignQueryThreadFuncParam *) arg;
+	*param->ppRes = PQexecParams(param->conn, param->sql , param->numParams, param->types, param->values,
+					   NULL, NULL, 0);
+}
+
 /*
  * Create cursor for node's query with current parameter values.
  */
@@ -982,6 +1000,7 @@ create_cursor(ForeignScanState *node)
 	char	   *sql;
 	StringInfoData buf;
 	PGresult   *res;
+	int			pthread_err;
 
 	/*
 	 * Construct array of external parameter values in text format.  Since
@@ -1069,8 +1088,32 @@ create_cursor(ForeignScanState *node)
 	 * We don't use a PG_TRY block here, so be careful not to throw error
 	 * without releasing the PGresult.
 	 */
-	res = PQexecParams(conn, buf.data, numParams, types, values,
-					   NULL, NULL, 0);
+	pthread_t	thread;
+	ForeignQueryThreadFuncParam param;
+	param.conn = conn;
+	param.sql = buf.data;
+	param.numParams = numParams;
+	param.types = types;
+	param.values = values;
+	param.ppRes = &res;
+	pthread_err = gp_pthread_create(&thread, thread_DoRemoteQuery,
+	                                &param, "thread_DoRemoteQuery");
+	if (pthread_err != 0){
+		pthread_join(thread, NULL);
+		ereport(FATAL, (errcode(ERRCODE_INTERNAL_ERROR),
+			errmsg("failed to create thread for send fdw remote query: %s", buf.data),
+			errdetail("pthread_create() failed with err %d", pthread_err)));
+		}
+
+	// Init inter connect for fdw motion receiver
+	MotionState *motionStates =  (MotionState*) outerPlanState(node);
+	if(motionStates!=NULL)
+	{
+		SetupInterconnect4FdwMotion(motionStates->ps.state);
+	}
+
+	pthread_join(thread, NULL);
+	res = *param.ppRes;
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
 		pgfdw_report_error(ERROR, res, true, sql);
 	PQclear(res);

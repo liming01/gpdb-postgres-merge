@@ -745,6 +745,7 @@ SetupInterconnect4FdwMotion(EState *estate)
 	MemoryContextSwitchTo(oldContext);
 
 	h->interconnect_context = icContext;
+	estate->isFdwMotionInterConnSetup = true;
 }
 
 /*

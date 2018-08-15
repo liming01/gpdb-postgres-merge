@@ -141,7 +141,7 @@ static void updateOutgoingConnection(ChunkTransportState *transportStates,
 						 ChunkTransportStateEntry *pEntry, MotionConn *conn, int errnoSave);
 static void sendRegisterMessage(ChunkTransportState *transportStates, ChunkTransportStateEntry *pEntry, MotionConn *conn);
 static bool readRegisterMessage(ChunkTransportState *transportStates,
-					MotionConn *conn);
+					MotionConn *conn, bool isFdwDumyMotionOnly);
 static MotionConn *acceptIncomingConnection(void);
 
 static void flushInterconnectListenerBacklog(void);
@@ -1034,7 +1034,7 @@ sendRegisterMessage(ChunkTransportState *transportStates, ChunkTransportStateEnt
  */
 static bool
 readRegisterMessage(ChunkTransportState *transportStates,
-					MotionConn *conn)
+					MotionConn *conn, bool isFdwDumyMotionOnly)
 {
 	int			bytesToReceive;
 	int			bytesReceived;
@@ -1116,8 +1116,8 @@ readRegisterMessage(ChunkTransportState *transportStates,
 	}
 
 	/* get rid of old connections first */
-	if (msg.srcSessionId != gp_session_id ||
-		msg.srcCommandCount < gp_interconnect_id)
+	if (!isFdwDumyMotionOnly && (msg.srcSessionId != gp_session_id ||
+		msg.srcCommandCount < gp_interconnect_id))
 	{
 		/*
 		 * This is an old connection, which can be safely ignored. We get this
@@ -1134,10 +1134,10 @@ readRegisterMessage(ChunkTransportState *transportStates,
 	}
 
 	/* Verify that the message pertains to one of our receiving Motion nodes. */
-	if (msg.sendSliceIndex > 0 &&
+	if (isFdwDumyMotionOnly|| (msg.sendSliceIndex > 0 &&
 		msg.sendSliceIndex <= transportStates->size &&
 		msg.recvSliceIndex == transportStates->sliceId &&
-		msg.srcContentId >= -1)
+		msg.srcContentId >= -1))
 	{
 		/* this is a good connection */
 	}
@@ -1161,7 +1161,9 @@ readRegisterMessage(ChunkTransportState *transportStates,
 	 * Find state info for the specified Motion node.  The sender's slice
 	 * number equals the motion node id.
 	 */
-	getChunkTransportState(transportStates, msg.sendSliceIndex, &pEntry);
+	//Todo: hardcoded send slice index for fdw dummy motion sender
+	//need to pass it to foreign server, and send back from msg? Or pass from ForeignNext()
+	getChunkTransportState(transportStates, isFdwDumyMotionOnly?1:msg.sendSliceIndex, &pEntry);
 	Assert(pEntry);
 
 	/*
@@ -1174,9 +1176,9 @@ readRegisterMessage(ChunkTransportState *transportStates,
 
 	cdbproc = (CdbProcess *) list_nth(pEntry->sendSlice->primaryProcesses, iconn);
 
-	if (msg.srcContentId != cdbproc->contentid ||
+	if (!isFdwDumyMotionOnly && (msg.srcContentId != cdbproc->contentid ||
 		msg.srcListenerPort != cdbproc->listenerPort ||
-		msg.srcPid != cdbproc->pid)
+		msg.srcPid != cdbproc->pid))
 	{
 		ereport(ERROR, (errcode(ERRCODE_GP_INTERCONNECTION_ERROR),
 						errmsg("Interconnect error: Invalid registration "
@@ -1803,7 +1805,7 @@ SetupTCPInterconnect(SliceTable *sliceTable, ChunkTransportState *cts, bool isFd
 			if (MPP_FD_ISSET(conn->sockfd, &rset))
 			{
 				n--;
-				if (readRegisterMessage(interconnect_context, conn))
+				if (readRegisterMessage(interconnect_context, conn, isFdwDumyMotionOnly))
 				{
 					/*
 					 * We're done with this connection (either it is bogus

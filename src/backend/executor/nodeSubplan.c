@@ -1189,6 +1189,7 @@ PG_TRY();
 							 false, false); /* following success on QD */
 		queryDesc->estate->interconnect_context = NULL;
 		queryDesc->estate->es_interconnect_is_setup = false;
+		queryDesc->estate->isFdwMotionInterConnSetup = false;
 	}
 }
 PG_CATCH();
@@ -1238,6 +1239,7 @@ PG_CATCH();
 							 true, false);
 		queryDesc->estate->interconnect_context = NULL;
 		queryDesc->estate->es_interconnect_is_setup = false;
+		queryDesc->estate->isFdwMotionInterConnSetup = false;
 	}
 	PG_RE_THROW();
 }
