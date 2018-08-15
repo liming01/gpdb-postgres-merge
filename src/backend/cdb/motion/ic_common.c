@@ -730,8 +730,6 @@ SetupInterconnect4FdwMotion(EState *estate)
 		elog(FATAL, "SetupInterconnect: no slice table ?");
 	}
 
-	h = allocate_interconnect_handle();
-
 	Assert(InterconnectContext != NULL);
 	oldContext = MemoryContextSwitchTo(InterconnectContext);
 
@@ -744,7 +742,6 @@ SetupInterconnect4FdwMotion(EState *estate)
 
 	MemoryContextSwitchTo(oldContext);
 
-	h->interconnect_context = icContext;
 	estate->isFdwMotionInterConnSetup = true;
 }
 
