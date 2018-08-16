@@ -1444,7 +1444,7 @@ doSendTuple(Motion * motion, MotionState * node, TupleTableSlot *outerTupleSlot)
 		}
 		else /* Fixed Motion. */
 		{
-			Assert(motion->numOutputSegs == 1);
+			Assert(gp_fdw_plan_rewrite||(motion->numOutputSegs == 1));
 			/*
 			 * Actually, since we can only send to a single output segment
 			 * here, we are guaranteed that we only have a single
@@ -1453,6 +1453,31 @@ doSendTuple(Motion * motion, MotionState * node, TupleTableSlot *outerTupleSlot)
 			 * route).
 			 */
 			targetRoute = 0;
+
+			// Change for fdw motion sender
+			if(gp_fdw_plan_rewrite){
+				EState *estate = node->ps.state;
+				SliceTable *sliceTable = estate->es_sliceTable;
+				Slice	   *mySlice = (Slice *) list_nth(sliceTable->slices, sliceTable->localSlice);
+
+				if(mySlice->parentIndex==-1 || mySlice->parentIndex==0){
+					// add federation server seg info at the first time
+					if(motion->numOutputSegs == 1) {
+						motion->numOutputSegs += 3; //Todo: temp hardcoded federation server seg num
+						int oldsegid = motion->outputSegIdx[0];
+						pfree(motion->outputSegIdx);
+						motion->outputSegIdx =
+							palloc(motion->numOutputSegs * sizeof(int));
+						motion->outputSegIdx[0] = oldsegid;
+						for (int i = 1; i < motion->numOutputSegs; i++)
+						{
+							motion->outputSegIdx[i] = i - 1;
+						}
+					}
+					//firstly send to same segid of 2 clusters
+					targetRoute = GpIdentity.segindex + 1;
+				}
+			}
 		}
 	}
 	else if (motion->motionType == MOTIONTYPE_HASH) /* Redistribute */
