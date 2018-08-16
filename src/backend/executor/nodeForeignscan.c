@@ -194,6 +194,7 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 	ForeignScanState *scanstate;
 	Relation	currentRelation;
 	FdwRoutine *fdwroutine;
+	TupleDesc	tupDesc;
 
 	/* check for unsupported flags */
 	Assert(!(eflags & (EXEC_FLAG_BACKWARD | EXEC_FLAG_MARK)));
@@ -239,7 +240,8 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 	/*
 	 * get the scan type from the relation descriptor.
 	 */
-	ExecAssignScanType(&scanstate->ss, RelationGetDescr(currentRelation));
+	tupDesc = RelationGetDescr(currentRelation);
+	ExecAssignScanType(&scanstate->ss, tupDesc);
 
 	/*
 	 * Initialize result tuple type and projection info.
@@ -291,8 +293,10 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 //	 if (Gp_role == GP_ROLE_EXECUTE){ //on all segments, need motion node
 	 	//for fdw motion child node
 	 	Plan *fdwMotionNode = outerPlan(node);
-	 	if(fdwMotionNode)
-	 		outerPlanState(scanstate) = ExecInitNode(fdwMotionNode, estate, eflags);
+	 	if(fdwMotionNode){
+		    estate->tupDesc4FdwMotion = tupDesc;
+			outerPlanState(scanstate) = ExecInitNode(fdwMotionNode, estate, eflags);
+	 	}
 //	 }
 
 	return scanstate;

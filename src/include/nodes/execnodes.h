@@ -619,6 +619,7 @@ typedef struct EState
 	/* MPP used resources */
 	bool		es_interconnect_is_setup;   /* is interconnect set-up?    */
 	bool        isFdwMotionInterConnSetup;
+	TupleDesc	tupDesc4FdwMotion;
 
 	bool		es_got_eos;			/* was end-of-stream recieved? */
 

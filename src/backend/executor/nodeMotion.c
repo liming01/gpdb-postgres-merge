@@ -999,7 +999,12 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	 */
 	ExecAssignResultTypeFromTL(&motionstate->ps);
 	motionstate->ps.ps_ProjInfo = NULL;
-	tupDesc = ExecGetResultType(&motionstate->ps);
+	if(isFdwDumyMotion){
+		//directly set tupDesc as FDW node, instead of motion receiver
+		tupDesc = estate->tupDesc4FdwMotion;
+	}else{
+		tupDesc = ExecGetResultType(&motionstate->ps);
+	}
 
 	/* Set up motion send data structures */
 	if (motionstate->mstype == MOTIONSTATE_SEND && node->motionType == MOTIONTYPE_HASH) 
