@@ -61,7 +61,12 @@ ForeignNext(ForeignScanState *node)
 	oldcontext = MemoryContextSwitchTo(econtext->ecxt_per_tuple_memory);
 	if (GpIdentity.segindex==0 && Gp_role == GP_ROLE_EXECUTE)
 	{
-		slot = node->fdwroutine->IterateForeignScan(node);
+		if(!node->isFdwQueryResultEnd){
+			slot = node->fdwroutine->IterateForeignScan(node);
+		}
+		if(TupIsNull(slot)){
+			node->isFdwQueryResultEnd = true;
+		}
 	}else if(Gp_role == GP_ROLE_EXECUTE){
 		//set up fdw dummy motion inter connect ( from foreign server segments to local segments)
 		MotionState *motionStates =  (MotionState*) outerPlanState(node);
@@ -205,6 +210,7 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 	scanstate = makeNode(ForeignScanState);
 	scanstate->ss.ps.plan = (Plan *) node;
 	scanstate->ss.ps.state = estate;
+	scanstate->isFdwQueryResultEnd = false;
 
 	/*
 	 * Miscellaneous initialization
