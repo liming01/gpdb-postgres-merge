@@ -433,6 +433,7 @@ setFDWMotionSenderInfoToGuc(Slice *aSlice)
 		return ;
 
 	totalNumProcs = list_length(aSlice->primaryProcesses);
+	Assert(totalNumProcs <= 3 && "Now only support max seg number 3 for temp");
 	for (i = 0; i < totalNumProcs; i++)
 	{
 		cdbProc = list_nth(aSlice->primaryProcesses, i);

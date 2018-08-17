@@ -972,7 +972,9 @@ makeCdbProcess4FDWDummyMotionRecver(List *cdbprocList)
 
 	CdbProcess *mp = (CdbProcess *)linitial(cdbprocList); //temp use local master hostname
 
-	for(int i=0; i<3; i++){
+	Assert(getgpsegmentCount()<=3 && "Now only support max seg number 3 for temp");
+
+	for(int i=0; i<getgpsegmentCount(); i++){
 		CdbProcess *process = (CdbProcess *) makeNode(CdbProcess);
 
 		process->listenerAddr = mp->listenerAddr;

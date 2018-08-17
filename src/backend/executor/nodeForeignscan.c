@@ -98,6 +98,7 @@ ForeignNext(ForeignScanState *node)
 //			elog(ERROR, "Can not flock() file: %s", tmpfilename);
 //		}
 //
+//		Assert(totalNumProcs <= 3 && "Now only support max seg number 3 for temp");
 //		for (i = 0; i < totalNumProcs; i++)
 //		{
 //			int val1, val2;

@@ -954,6 +954,7 @@ change_fdw_motion_send_info(ForeignScanState *node, PGconn	*conn)
 	}
 
 	totalNumProcs = list_length(sendSlice->primaryProcesses);
+	Assert(totalNumProcs <= 3 && "Now only support max seg number 3 for temp");
 	for (i = 0; i < totalNumProcs; i++)
 	{
 		cdbProc = list_nth(sendSlice->primaryProcesses, i);

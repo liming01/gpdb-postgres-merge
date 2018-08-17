@@ -966,7 +966,7 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 
 	if(isFdwDumyMotion)
 	{
-		motionstate->numInputSegs = 3; //Todo: need to fetch seg number of foreign server.
+		motionstate->numInputSegs = getgpsegmentCount() ; //Todo: need to fetch seg number of foreign server.
 	}else{
 		motionstate->numInputSegs = sendSlice->numGangMembersToBeActive;
 	}
@@ -1468,7 +1468,7 @@ doSendTuple(Motion * motion, MotionState * node, TupleTableSlot *outerTupleSlot)
 				if(mySlice->parentIndex==-1 || mySlice->parentIndex==0){
 					// add federation server seg info at the first time
 					if(motion->numOutputSegs == 1) {
-						motion->numOutputSegs += 3; //Todo: temp hardcoded federation server seg num
+						motion->numOutputSegs += getgpsegmentCount(); //Todo: temp hardcoded federation server seg num
 						int oldsegid = motion->outputSegIdx[0];
 						pfree(motion->outputSegIdx);
 						motion->outputSegIdx =
