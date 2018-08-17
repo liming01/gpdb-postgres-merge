@@ -736,7 +736,7 @@ compare_slice_order(const void *aa, const void *bb)
 	 */
 	if (a->slice->primaryGang->gang_id == 1)
 	{
-		Assert(b->slice->primaryGang->gang_id != 1);
+		Assert(a->slice->isFdwDummyMotionSender || b->slice->primaryGang->gang_id != 1);
 		return -1;
 	}
 	if (b->slice->primaryGang->gang_id == 1)
