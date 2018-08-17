@@ -997,12 +997,15 @@ ExecInitMotion(Motion * node, EState *estate, int eflags)
 	 * initialize tuple type.  no need to initialize projection info
 	 * because this node doesn't do projections.
 	 */
-	ExecAssignResultTypeFromTL(&motionstate->ps);
-	motionstate->ps.ps_ProjInfo = NULL;
+
 	if(isFdwDumyMotion){
 		//directly set tupDesc as FDW node, instead of motion receiver
-		tupDesc = estate->tupDesc4FdwMotion;
+		tupDesc = estate->fss4FdwMotion->ss.ss_ScanTupleSlot->tts_tupleDescriptor;
+		ExecAssignResultType(&motionstate->ps, tupDesc);
+		motionstate->ps.ps_ProjInfo = estate->fss4FdwMotion->ss.ps.ps_ProjInfo;
 	}else{
+		ExecAssignResultTypeFromTL(&motionstate->ps);
+		motionstate->ps.ps_ProjInfo = NULL;
 		tupDesc = ExecGetResultType(&motionstate->ps);
 	}
 

@@ -301,7 +301,7 @@ ExecInitForeignScan(ForeignScan *node, EState *estate, int eflags)
 	 	//for fdw motion child node
 	 	Plan *fdwMotionNode = outerPlan(node);
 	 	if(fdwMotionNode){
-		    estate->tupDesc4FdwMotion = tupDesc;
+		    estate->fss4FdwMotion = scanstate;
 			outerPlanState(scanstate) = ExecInitNode(fdwMotionNode, estate, eflags);
 	 	}
 //	 }

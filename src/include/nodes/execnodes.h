@@ -25,6 +25,7 @@
 #include "utils/sortsupport.h"
 #include "utils/tuplestore.h"
 #include "nodes/parsenodes.h"
+#include "nodes/execnodes.h"
 
 #include "gpmon/gpmon.h"                /* gpmon_packet_t */
 
@@ -619,7 +620,7 @@ typedef struct EState
 	/* MPP used resources */
 	bool		es_interconnect_is_setup;   /* is interconnect set-up?    */
 	bool        isFdwMotionInterConnSetup;
-	TupleDesc	tupDesc4FdwMotion;
+	struct ForeignScanState	*fss4FdwMotion;
 
 	bool		es_got_eos;			/* was end-of-stream recieved? */
 
@@ -2944,7 +2945,6 @@ typedef struct MotionState
 	Oid		   *outputFunArray;	/* output functions for each column (debug only) */
 
 	int			numInputSegs;	/* the number of segments on the sending slice */
-	bool        is
 } MotionState;
 
 /*zx
